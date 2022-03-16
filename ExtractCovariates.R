@@ -126,9 +126,7 @@ data.clim.long <- data.clim.wide %>%
   pivot_wider(names_from="cov", values_from="value") %>% 
   mutate(covmonth = as.numeric(str_sub(covdate, 2, 3)))
 
-
-
-write.csv(data.clim, "Wordclim.csv", row.names = FALSE)
+write.csv(data.clim.long, "Wordclim.csv", row.names = FALSE)
 
 #10. ERA monthly----
 years <- seq(1981, 2021, 1) 

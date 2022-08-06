@@ -34,17 +34,12 @@ buffer_points <- function(feature){
 }
 
 #3. Import data----
-dat.raw <- read.csv("capri.locs.csv") %>% 
-  dplyr::filter(!is.na(B.Lat),
-                !is.na(W.Lat)) %>% 
-  mutate(ID = row_number())
-
-write.csv(dat.raw, "capri.locs.bw.csv", row.names = FALSE)
+dat.raw <- read.csv("capri.fac.csv") %>% 
+  rename(ID=X)
 
 dat.b <- dat.raw %>% 
-  mutate(ID = row_number()) %>% 
   rename(Y = B.Lat, X = B.Long, Date = Banding.Date) %>% 
-  mutate(Date = mdy(Date),
+  mutate(Date = ymd(Date),
          season = "Breed") %>% 
   dplyr::select(ID, Species, Date, X, Y, season)
 
@@ -55,7 +50,9 @@ dat.w <- dat.raw %>%
          season = "Winter") %>% 
   dplyr::select(ID, Species, Date, X, Y, season)
 
-dat <- rbind(dat.b, dat.w)
+dat <- rbind(dat.b, dat.w) %>% 
+  mutate(Species = case_when(Species %in% c("Ceur", "European Nightjar", "European Nigthtjar") ~ "EUNI",
+                             !is.na(Species) ~ Species))
 
 #4. Visualize----
 ggplot(dat) +

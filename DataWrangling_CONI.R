@@ -4,7 +4,8 @@ library(lubridate)
 library(geosphere)
 
 #1. Read in data----
-band <- read_excel("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Data/tbl_band.xlsx")
+band <- read_excel("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Data/tbl_band.xlsx") %>% 
+  mutate(Mass=ifelse(Population==11, Mass-7, Mass))
 
 all <- read.csv("/Users/ellyknight/Documents/UoA/Projects/Projects/MCP2/Analysis/Data/CONIMCP_CleanDataAll.csv")  %>% 
   mutate(Winter2 = case_when(PinpointID %in% c(81, 439, 443, 490, 825, 826, 828) & Season2=="Winter2" ~ 2,
@@ -264,3 +265,29 @@ bandid <- band %>%
   dplyr::filter(ArgosID > 0, Year > 2016) %>% 
   dplyr::select(Population, Band, DataID, ArgosID, PinpointID) %>% 
   arrange(Population, PinpointID)
+
+#11. Wrangle larger breeding ground dataset----
+band.df <- band %>% 
+  left_join(pop) %>% 
+  rename(BandTime=Time,
+         BandDate=Date,
+         SiteName=Region,
+         BandNumber=Band,
+         TagID = PinpointID,
+         WingChord=Wing,
+         TailLength=Tail,
+         B.Lat = Lat,
+         B.Long=Long) %>% 
+  mutate(Project="CONI MCP",
+         Recap="N",
+         Species="CONI",
+         CP=NA,
+         BP=NA,
+         WingFlat="N",
+         Tarsus=NA,
+         BandTime = str_sub(as.character(BandTime), -8, -1)) %>% 
+  dplyr::select(Project, Year, BandDate, Recap, BandTime, Species, SiteName, Country, BandNumber, TagID, Age, Sex, CP, BP, Fat, WingChord, WingFlat, TailLength, Tarsus, Mass, B.Lat, B.Long,Comments) %>% 
+  mutate(Fat = ifelse(Fat < 0, NA, Fat),
+         TailLength = ifelse(TailLength < 0, NA, TailLength))
+
+write.csv(band.df, "/Users/ellyknight/Documents/UoA/Projects/Projects/Morphometrics/DataSheet_CONI_Breeding.csv", row.names = FALSE)

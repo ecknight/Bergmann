@@ -77,7 +77,7 @@ ggplot() +
 
 #7. Predict to new data----
 out <- use %>% 
-  mutate(CorrectedMass = predict(mod2, re.form=~(1|Population), use))
+  mutate(CorrectedMass = predict(mod2, use))
 
 #8. Visualize----
 ggplot(out) +

@@ -60,7 +60,7 @@ for(i in 1:nrow(spp)){
                   season==spp$season[i]) %>% 
     mutate(loop = ceiling(row_number()/100))
   
-  for(k in 2:max(dat.i$loop)){
+  for(k in 1:max(dat.i$loop)){
     
     #5. Filter data again----
     dat.k <- dat.i %>% 
@@ -120,30 +120,6 @@ for(i in 1:nrow(spp)){
     ee_monitoring(task_vector, max_attempts=1000)
     ee_gcs_to_local(task = task_vector, dsn=paste0("buffercovs/clim-", spp$id[i], "-", k, ".csv"))
     
-    #7. ERA monthly----
-    years <- seq(1981, 2021, 1)
-    
-    data.era <- list()
-    for(j in 1:length(years)){
-      
-      start<-paste0(years[j], "-01-01")
-      end<-paste0(years[j],"-12-31")
-      
-      era<-ee$ImageCollection("ECMWF/ERA5_LAND/MONTHLY")$filterDate(start,end)$toBands()
-      
-      image.era <- era$reduceRegions(collection=data.buff,
-                                     reducer=ee$Reducer$mean(),
-                                     scale=30)
-      
-      task_vector <- ee_table_to_gcs(collection=image.era,
-                                     bucket="lbcu",
-                                     fileFormat = "CSV",
-                                     fileNamePrefix = spp$id[i])
-      task_vector$start()
-      ee_monitoring(task_vector, max_attempts=2000)
-      ee_gcs_to_local(task = task_vector, dsn=paste0("buffercovs/era-",years[j],"-", spp$id[i], "-", k, ".csv"))
-    }
-    
     #8. Terraclim monthly----
     years <- seq(1958, 2020, 1) 
     
@@ -164,7 +140,7 @@ for(i in 1:nrow(spp)){
                                      fileFormat = "CSV",
                                      fileNamePrefix = spp$id[i])
       task_vector$start()
-      ee_monitoring(task_vector, max_attempts=1000)
+      ee_monitoring(task_vector, max_attempts=2000)
       ee_gcs_to_local(task = task_vector, dsn=paste0("buffercovs/terra-",years[j],"-", spp$id[i], "-", k, ".csv"))
     }
     
@@ -175,15 +151,15 @@ for(i in 1:nrow(spp)){
 
 files <- data.frame(filepath = list.files("buffercovs", full.names = TRUE)) %>% 
   separate(filepath, into=c("folder", "file"), sep="/", remove=FALSE) %>% 
-  separate(file, into=c("var", "year", "species",  "season"), sep="-") %>% 
-  mutate(season = ifelse(!var %in% c("era", "terra"), species, season),
+  separate(file, into=c("var", "year", "species",  "season", "loop"), sep="-") %>% 
+  mutate(loop = ifelse(!var %in% c("era", "terra"), season, loop),
+         loop = as.numeric(str_sub(loop, -100, -5)),
+         season = ifelse(!var %in% c("era", "terra"), species, season),
          species = ifelse(!var %in% c("era", "terra"), year, species),
-         year = ifelse(!var %in% c("era", "terra"), NA, year),
-         season = str_sub(season, -100, -5))
+         year = ifelse(!var %in% c("era", "terra"), NA, year))
 
 evi.list <- list()
 dem.list <- list()
-era.list <- list()
 clim.list <- list()
 terra.list <- list()
 for(i in 1:nrow(spp)){
@@ -191,63 +167,62 @@ for(i in 1:nrow(spp)){
   dat.i <- dat %>% 
     dplyr::filter(Species==spp$species[i],
                   season==spp$season[i]) %>% 
-    dplyr::select(rowID)
+    mutate(loop = ceiling(row_number()/100))
   
-  evi.list[[i]] <- dat.i %>% 
-    cbind(read.csv(dplyr::filter(files, var=="evi", species==spp$species[i], season==spp$season[i])$filepath)) %>% 
-    dplyr::select(-system.index, -.geo)
-  
-  dem.list[[i]] <- dat.i %>% 
-    cbind(read.csv(dplyr::filter(files, var=="dem", species==spp$species[i], season==spp$season[i])$filepath)) %>% 
-    dplyr::select(-system.index, -.geo)
-  
-  clim.list[[i]] <- dat.i %>% 
-    cbind(read.csv(dplyr::filter(files, var=="clim", species==spp$species[i], season==spp$season[i])$filepath)) %>% 
-    dplyr::select(-system.index, -.geo)
-  
-  era.files <- dplyr::filter(files, var=="era", species==spp$species[i], season==spp$season[i])
-  era.list.list <- list()
-  for(j in 1:nrow(era.files)){
-    era.wide <- dat.i %>% 
-      cbind(read.csv(era.files$filepath[j])) %>% 
-      dplyr::select(-system.index, -.geo)
-    era.list.list[[j]] <- era.wide %>% 
-      pivot_longer(2:ncol(era.wide), names_to="layer", values_to="value") %>%
-      mutate(covdate = str_sub(layer, 1, 7),
-             cov = str_sub(layer, 9, 100)) %>%
-      dplyr::select(-layer) %>%
-      pivot_wider(names_from="cov", values_from="value") %>%
-      mutate(covyear = as.numeric(str_sub(covdate, 2, 5)),
-             covmonth = as.numeric(str_sub(covdate, 6, 7)))
-  }
-  era.list[[i]] <- rbindlist(era.list.list)
-  
-  terra.files <- dplyr::filter(files, var=="terra", species==spp$species[i], season==spp$season[i])
+  evi.list.list <- list()
+  dem.list.list <- list()
+  clim.list.list <- list()
   terra.list.list <- list()
-  for(j in 1:nrow(terra.files)){
-    terra.wide <- dat.i %>% 
-      cbind(read.csv(terra.files$filepath[j])) %>% 
+  for(k in 1:max(dat.i$loop)){
+    
+    dat.k <- dat.i %>% 
+      dplyr::filter(loop==k)
+    
+    evi.list.list[[k]] <- dat.k %>% 
+      cbind(read.csv(dplyr::filter(files, var=="evi", species==spp$species[i], season==spp$season[i], loop==k)$filepath)) %>% 
       dplyr::select(-system.index, -.geo)
-    terra.list.list[[j]] <- terra.wide %>% 
-      pivot_longer(2:ncol(terra.wide), names_to="layer", values_to="value") %>% 
-      mutate(covdate = str_sub(layer, 1, 7),
-             cov = str_sub(layer, 9, 100)) %>% 
-      dplyr::select(-layer) %>% 
-      pivot_wider(names_from="cov", values_from="value") %>% 
-      mutate(covyear = as.numeric(str_sub(covdate, 2, 5)),
-             covmonth = as.numeric(str_sub(covdate, 6, 7)))
+    
+    dem.list.list[[k]] <- dat.k %>% 
+      cbind(read.csv(dplyr::filter(files, var=="dem", species==spp$species[i], season==spp$season[i], loop==k)$filepath)) %>% 
+      dplyr::select(-system.index, -.geo)
+    
+    clim.list.list[[k]] <- dat.k %>% 
+      cbind(read.csv(dplyr::filter(files, var=="clim", species==spp$species[i], season==spp$season[i], loop==k)$filepath)) %>% 
+      dplyr::select(-system.index, -.geo)
+    
+    terra.files <- dplyr::filter(files, var=="terra", species==spp$species[i], season==spp$season[i], loop==k)
+    terra.list.list.list <- list()
+    for(j in 1:nrow(terra.files)){
+      terra.wide <- dat.k %>% 
+        cbind(read.csv(terra.files$filepath[j])) %>% 
+        dplyr::select(-system.index, -.geo)
+      terra.list.list[[j]] <- terra.wide %>% 
+        pivot_longer(7:ncol(terra.wide), names_to="layer", values_to="value") %>% 
+        mutate(covdate = str_sub(layer, 1, 7),
+               cov = str_sub(layer, 9, 100)) %>% 
+        dplyr::select(-layer) %>% 
+        pivot_wider(names_from="cov", values_from="value") %>% 
+        mutate(covyear = as.numeric(str_sub(covdate, 2, 5)),
+               covmonth = as.numeric(str_sub(covdate, 6, 7)))
+    }
+    
+    terra.list.list[[k]] <- rbindlist(terra.list.list.list)
+    
   }
+  
+  evi.list[[i]] <- rbindlist(evi.list.list)
+  dem.list[[i]] <- rbindlist(dem.list.list)
+  clim.list[[i]] <- rbindlist(clim.list.list)
   terra.list[[i]] <- rbindlist(terra.list.list)
+  
 }
 
 evi.out <- rbindlist(evi.list)
 dem.out <- rbindlist(dem.list)
-era.out <- rbindlist(era.list)
 clim.out <- rbindlist(clim.list)
 terra.out <- rbindlist(terra.list)
 
 write.csv(evi.out, "EVI-buffer.csv", row.names = FALSE)
 write.csv(dem.out, "DEM-buffer.csv", row.names = FALSE)
-write.csv(era.out, "ERA-buffer.csv", row.names = FALSE)
 write.csv(clim.out, "Wordclim-buffer.csv", row.names = FALSE)
 write.csv(terra.out, "Terraclim-buffer.csv", row.names = FALSE)

@@ -43,7 +43,7 @@ ggplot(use) +
 
 ggplot(use) +
   geom_point(aes(x=tssr, y=Mass, colour=factor(round(lat, -1)))) +
-  geom_smooth(aes(x=tssr, y=Mass, colour=factor(round(lat, -1)))) +
+  geom_smooth(aes(x=tssr, y=Mass, colour=factor(round(lat, -1))), method="lm") +
   ylim(c(45, 100))
 
 ggplot(use) +
@@ -58,26 +58,27 @@ ggplot(recap) +
   geom_smooth(aes(x=tssr, y=Mass))
 
 #5. Ok try with RE for individual----
-mod1 <- lmer(Mass ~ tssr + (1|Population/BandNumber), data=use)
-mod2 <- lmer(Mass ~ poly(tssr, 2) + (1|Population/BandNumber), data=use)
+mod1 <- lmer(Mass ~ tssr + (1|BandNumber), data=use)
+mod2 <- lmer(Mass ~ poly(tssr, 2) + (1|BandNumber), data=use)
 AIC(mod1, mod2)
 
 #6. Try predicting----
 newdat <- data.frame(expand.grid(tssr = seq(round(min(use$tssr), 1), round(max(use$tssr), 1), 0.1),
 #                                 jday = seq(min(use$jday), max(use$jday), 1),
-                                 Population = unique(use$Population)))
-pred <- data.frame(pred.re = predict(mod2, newdat, re.form = ~(1|Population)),
+                                 BandNumber = unique(use$BandNumber)))
+pred <- data.frame(pred.re = predict(mod2, newdat, re.form = ~(1|BandNumber)),
                    pred = predict(mod2, newdat, re.form = ~0)) %>% 
   cbind(newdat)
 
 ggplot() +
   geom_point(aes(x=tssr, y=Mass, colour=Population), data=use) +
-  geom_line(aes(x=tssr, y=pred.re, colour=Population), data=pred) +
-  geom_line(aes(x=tssr, y=pred), data=pred, colour="black", lwd=2)
+  geom_line(aes(x=tssr, y=pred.re, colour=BandNumber), data=pred) +
+  geom_line(aes(x=tssr, y=pred), data=pred, colour="black", lwd=2) +
+  theme(legend.position = "none")
 
 #7. Predict to new data----
 out <- use %>% 
-  mutate(CorrectedMass = predict(mod2, use))
+  mutate(CorrectedMass = predict(mod4, use))
 
 #8. Visualize----
 ggplot(out) +
@@ -85,3 +86,8 @@ ggplot(out) +
   scale_colour_viridis_c()
 
 write.csv(out, "/Users/ellyknight/Documents/UoA/Projects/Projects/Morphometrics/DataSheet_CONI_Breeding_MassCorrection.csv", row.names = FALSE)
+
+
+#9. Test for effect----
+int <- lm(Mass ~ poly(tssr, 2)*Population, data=use, na.action = "na.fail")
+MuMIn::dredge(int)

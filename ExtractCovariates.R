@@ -178,17 +178,33 @@ for(i in 1:nrow(spp)){
     dat.k <- dat.i %>% 
       dplyr::filter(loop==k)
     
-    evi.list.list[[k]] <- dat.k %>% 
+    evi.wide <- dat.k %>% 
       cbind(read.csv(dplyr::filter(files, var=="evi", species==spp$species[i], season==spp$season[i], loop==k)$filepath)) %>% 
       dplyr::select(-system.index, -.geo)
+    evi.list.list[[k]] <- evi.wide %>% 
+      pivot_longer(7:ncol(evi.wide), names_to="layer", values_to="value") %>% 
+      mutate(covdate = str_sub(layer, 1, 9),
+             cov = str_sub(layer, 11, 100)) %>% 
+      dplyr::select(-layer) %>% 
+      pivot_wider(names_from="cov", values_from="value") %>% 
+      mutate(covyear = as.numeric(str_sub(covdate, 2, 5)),
+             covmonth = as.numeric(str_sub(covdate, 6, 7)),
+             covday = as.numeric(str_sub(covdate, 8, 9)))
     
     dem.list.list[[k]] <- dat.k %>% 
       cbind(read.csv(dplyr::filter(files, var=="dem", species==spp$species[i], season==spp$season[i], loop==k)$filepath)) %>% 
       dplyr::select(-system.index, -.geo)
     
-    clim.list.list[[k]] <- dat.k %>% 
+    clim.wide <- dat.k %>% 
       cbind(read.csv(dplyr::filter(files, var=="clim", species==spp$species[i], season==spp$season[i], loop==k)$filepath)) %>% 
       dplyr::select(-system.index, -.geo)
+    clim.list.list[[k]] <- clim.wide %>% 
+      pivot_longer(7:ncol(clim.wide), names_to="layer", values_to="value") %>% 
+      mutate(covdate = str_sub(layer, 1, 3),
+             cov = str_sub(layer, 5, 100)) %>% 
+      dplyr::select(-layer) %>% 
+      pivot_wider(names_from="cov", values_from="value") %>% 
+      mutate(covmonth = as.numeric(str_sub(covdate, 2, 3)))
     
     terra.files <- dplyr::filter(files, var=="terra", species==spp$species[i], season==spp$season[i], loop==k)
     terra.list.list.list <- list()

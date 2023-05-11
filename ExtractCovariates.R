@@ -212,7 +212,7 @@ for(i in 1:nrow(spp)){
       terra.wide <- dat.k %>% 
         cbind(read.csv(terra.files$filepath[j])) %>% 
         dplyr::select(-system.index, -.geo)
-      terra.list.list[[j]] <- terra.wide %>% 
+      terra.list.list.list[[j]] <- terra.wide %>% 
         pivot_longer(7:ncol(terra.wide), names_to="layer", values_to="value") %>% 
         mutate(covdate = str_sub(layer, 1, 7),
                cov = str_sub(layer, 9, 100)) %>% 

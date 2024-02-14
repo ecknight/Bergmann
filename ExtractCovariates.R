@@ -1,6 +1,7 @@
 library(rgee)
 ee_Initialize() 
 
+library(readxl)
 library(sf)
 library(tidyverse)
 library(lubridate)
@@ -10,17 +11,17 @@ library(usdm)
 #SET UP####
 
 #1. Import data----
-dat.raw <- read.csv("CapDfElly.csv")
+dat.raw <- read_excel("Capri_BA_12.19.23.xlsx")
 
 dat.b <- dat.raw %>% 
   rename(Y = B.Lat, X = B.Long) %>% 
   mutate(season = "Breed") %>% 
-  dplyr::select(rowID, Species, X, Y, season)
+  dplyr::select(uniqID, Species, X, Y, season)
 
 dat.w <- dat.raw %>% 
   rename(Y = W.Lat, X = W.Long) %>% 
   mutate(season = "Winter") %>% 
-  dplyr::select(rowID, Species,  X, Y, season) %>% 
+  dplyr::select(uniqID, Species,  X, Y, season) %>% 
   dplyr::filter(!is.na(X))
 
 dat <- rbind(dat.b, dat.w)
@@ -49,7 +50,7 @@ spp <- data.frame(expand.grid(species = unique(dat$Species),
                   radius = c(500, 5000, 500, 100, 1000, 100)) %>% 
   mutate(id = paste0(species, "-", season))
 
-for(i in 1:nrow(spp)){
+for(i in 2:nrow(spp)){
   
   #3. Set buffer radius
   rad <- spp$radius[i]
@@ -75,66 +76,66 @@ for(i in 1:nrow(spp)){
     #7. Buffer points----
     data.buff <- data$map(buffer_points)
     
-    #8. EVI----
-    evi <- ee$ImageCollection('LANDSAT/LC08/C01/T1_8DAY_EVI')$select('EVI')$toBands()
-    
-    image.evi <- evi$reduceRegions(collection=data.buff,
-                                   reducer=ee$Reducer$mean(),
-                                   scale=30)
-    
-    task_vector <- ee_table_to_gcs(collection=image.evi,
-                                   bucket="lbcu",
-                                   fileFormat = "CSV",
-                                   fileNamePrefix = spp$id[i])
-    task_vector$start()
-    ee_monitoring(task_vector, max_attempts=1000)
-    ee_gcs_to_local(task = task_vector, dsn=paste0("buffercovs/evi-", spp$id[i], "-", k, ".csv"))
-    
-    #5. DEM----
-    dem <- ee$Image('USGS/GTOPO30')
-    
-    image.dem <- dem$reduceRegions(collection=data.buff,
-                                   reducer=ee$Reducer$mean(),
-                                   scale=30)
-    
-    task_vector <- ee_table_to_gcs(collection=image.dem,
-                                   bucket="lbcu",
-                                   fileFormat = "CSV",
-                                   fileNamePrefix = spp$id[i])
-    task_vector$start()
-    ee_monitoring(task_vector, max_attempts=1000)
-    ee_gcs_to_local(task = task_vector, dsn=paste0("buffercovs/dem-", spp$id[i], "-", k, ".csv"))
-    
-    #6. Worldclim monthly----
-    clim <- ee$ImageCollection('WORLDCLIM/V1/MONTHLY')$toBands()
-    
-    image.clim <- clim$reduceRegions(collection=data.buff,
-                                     reducer=ee$Reducer$mean(),
-                                     scale=30)
-    
-    task_vector <- ee_table_to_gcs(collection=image.clim,
-                                   bucket="lbcu",
-                                   fileFormat = "CSV",
-                                   fileNamePrefix = spp$id[i])
-    task_vector$start()
-    ee_monitoring(task_vector, max_attempts=1000)
-    ee_gcs_to_local(task = task_vector, dsn=paste0("buffercovs/clim-", spp$id[i], "-", k, ".csv"))
-    
+    # #8. EVI----
+    # evi <- ee$ImageCollection('LANDSAT/LC08/C01/T1_8DAY_EVI')$select('EVI')$toBands()
+    # 
+    # image.evi <- evi$reduceRegions(collection=data.buff,
+    #                                reducer=ee$Reducer$mean(),
+    #                                scale=30)
+    # 
+    # task_vector <- ee_table_to_gcs(collection=image.evi,
+    #                                bucket="lbcu",
+    #                                fileFormat = "CSV",
+    #                                fileNamePrefix = spp$id[i])
+    # task_vector$start()
+    # ee_monitoring(task_vector, max_attempts=1000)
+    # ee_gcs_to_local(task = task_vector, dsn=paste0("buffercovs/evi-", spp$id[i], "-", k, ".csv"))
+    # 
+    # #5. DEM----
+    # dem <- ee$Image('USGS/GTOPO30')
+    # 
+    # image.dem <- dem$reduceRegions(collection=data.buff,
+    #                                reducer=ee$Reducer$mean(),
+    #                                scale=30)
+    # 
+    # task_vector <- ee_table_to_gcs(collection=image.dem,
+    #                                bucket="lbcu",
+    #                                fileFormat = "CSV",
+    #                                fileNamePrefix = spp$id[i])
+    # task_vector$start()
+    # ee_monitoring(task_vector, max_attempts=1000)
+    # ee_gcs_to_local(task = task_vector, dsn=paste0("buffercovs/dem-", spp$id[i], "-", k, ".csv"))
+    # 
+    # #6. Worldclim monthly----
+    # clim <- ee$ImageCollection('WORLDCLIM/V1/MONTHLY')$toBands()
+    # 
+    # image.clim <- clim$reduceRegions(collection=data.buff,
+    #                                  reducer=ee$Reducer$mean(),
+    #                                  scale=30)
+    # 
+    # task_vector <- ee_table_to_gcs(collection=image.clim,
+    #                                bucket="lbcu",
+    #                                fileFormat = "CSV",
+    #                                fileNamePrefix = spp$id[i])
+    # task_vector$start()
+    # ee_monitoring(task_vector, max_attempts=1000)
+    # ee_gcs_to_local(task = task_vector, dsn=paste0("buffercovs/clim-", spp$id[i], "-", k, ".csv"))
+    # 
     #8. Terraclim monthly----
-    years <- seq(1958, 2020, 1) 
-    
+    years <- seq(1970, 2020, 1)
+
     data.terra <- list()
     for(j in 1:length(years)){
-      
+
       start<-paste0(years[j], "-01-01")
       end<-paste0(years[j],"-12-31")
-      
+
       terra<-ee$ImageCollection("IDAHO_EPSCOR/TERRACLIMATE")$filterDate(start,end)$toBands()
-      
+
       image.terra <- terra$reduceRegions(collection=data.buff,
                                          reducer=ee$Reducer$mean(),
                                          scale=30)
-      
+
       task_vector <- ee_table_to_gcs(collection=image.terra,
                                      bucket="lbcu",
                                      fileFormat = "CSV",
@@ -149,9 +150,9 @@ for(i in 1:nrow(spp)){
   print(paste0("COMPLETED SPECIES ", spp$species[i]))
 }
 
-files <- data.frame(filepath = list.files("buffercovs", full.names = TRUE)) %>% 
-  separate(filepath, into=c("folder", "file"), sep="/", remove=FALSE) %>% 
-  separate(file, into=c("var", "year", "species",  "season", "loop"), sep="-") %>% 
+files <- data.frame(filepath = list.files("buffercovs", full.names = TRUE)) %>%
+  separate(filepath, into=c("folder", "file"), sep="/", remove=FALSE) %>%
+  separate(file, into=c("var", "year", "species",  "season", "loop"), sep="-") %>%
   mutate(loop = ifelse(!var %in% c("era", "terra"), season, loop),
          loop = as.numeric(str_sub(loop, -100, -5)),
          season = ifelse(!var %in% c("era", "terra"), species, season),
@@ -209,19 +210,19 @@ for(i in 1:nrow(spp)){
     terra.files <- dplyr::filter(files, var=="terra", species==spp$species[i], season==spp$season[i], loop==k)
     terra.list.list.list <- list()
     for(j in 1:nrow(terra.files)){
-      terra.wide <- dat.k %>% 
-        cbind(read.csv(terra.files$filepath[j])) %>% 
+      terra.wide <- dat.k %>%
+        cbind(read.csv(terra.files$filepath[j])) %>%
         dplyr::select(-system.index, -.geo)
-      terra.list.list.list[[j]] <- terra.wide %>% 
-        pivot_longer(7:ncol(terra.wide), names_to="layer", values_to="value") %>% 
+      terra.list.list.list[[j]] <- terra.wide %>%
+        pivot_longer(7:ncol(terra.wide), names_to="layer", values_to="value") %>%
         mutate(covdate = str_sub(layer, 1, 7),
-               cov = str_sub(layer, 9, 100)) %>% 
-        dplyr::select(-layer) %>% 
-        pivot_wider(names_from="cov", values_from="value") %>% 
+               cov = str_sub(layer, 9, 100)) %>%
+        dplyr::select(-layer) %>%
+        pivot_wider(names_from="cov", values_from="value") %>%
         mutate(covyear = as.numeric(str_sub(covdate, 2, 5)),
                covmonth = as.numeric(str_sub(covdate, 6, 7)))
     }
-    
+
     terra.list.list[[k]] <- rbindlist(terra.list.list.list)
     
   }

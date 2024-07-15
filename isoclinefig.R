@@ -111,6 +111,30 @@ dat.ewpw.wing <- dplyr::filter(dat, Species=="Whip-poor-will", !is.na(Wing.comb)
 m.ewpw.wing <- lm(Wing.comb ~ B.Lat + B.Long + Sex + Age, data=dat.ewpw.wing)
 summary(m.ewpw.wing)
 
+#5. Get the DEMs----
+
+#ONLY RUN THIS ONCE TO DOWNLOAD
+# library(rgee)
+# ee_Initialize()
+# 
+# img <- ee$Image("NOAA/NGDC/ETOPO1")$select(c("bedrock"))
+# 
+# geo.coni <- ee$Geometry$Rectangle(
+#   coords = c(-140, 5, -55, 68),
+#   proj = "EPSG:4326",
+#   geodesic = FALSE
+# )
+# 
+# img.coni <- ee_as_rast(
+#   image = img,
+#   region =  geo.coni,
+#   via = "drive",
+#   lazy = TRUE
+# )
+#GO GET RASTERS FROM GOOGLE DRIVE
+
+elev.coni <- rast("dems/ETOPO1_coni.tif")
+
 #5. Get the ranges & rasterize----
 
 ranges <- read_sf("ranges/BOTW_9-3_Caprimulgids.shp")
